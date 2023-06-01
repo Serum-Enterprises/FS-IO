@@ -1,0 +1,36 @@
+{
+	"name": "@serum-enterprises/fs-io",
+	"version": "1.0.0",
+	"description": "Filesystem IO Library with built in LFU Cache written in NodeJS",
+	"main": "src/index.js",
+	"scripts": {
+		"test": "jest --coverage ."
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Serum-Enterprises/FS-IO.git"
+	},
+	"keywords": [
+		"fs",
+		"filesystem",
+		"io",
+		"cache",
+		"node",
+		"nodejs",
+		"wrapper"
+	],
+	"author": "Philipp Steckenbauer",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/Serum-Enterprises/FS-IO/issues"
+	},
+	"homepage": "https://github.com/Serum-Enterprises/FS-IO#readme",
+	"devDependencies": {
+		"@types/jest": "^29.5.1",
+		"@types/node": "^20.2.5",
+		"jest": "^29.5.0"
+	},
+	"dependencies": {
+		"@serum-enterprises/cache": "^1.0.0"
+	}
+}
