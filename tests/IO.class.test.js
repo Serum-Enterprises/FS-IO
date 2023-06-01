@@ -1,5 +1,5 @@
 const Cache = require('@serum-enterprises/cache');
-const IO = require('../src/IO.class');
+const IO = require('../src/IO');
 
 describe('Testing IO', () => {
 	test('constructor', () => {
