@@ -1,12 +1,12 @@
 const Cache = require('@serum-enterprises/cache');
-const Result = require('./Result.class');
+const Result = require('../lib/Result.class');
 
-const IO = require('./IO.class');
+const IO = require('./IO');
 
 const path = require('path');
 const fs = require('fs');
 
-class ReadOnlyIO extends IO {
+class ReadOnly extends IO {
 	/**
 	 * Create a new ReadOnlyIO Instance
 	 * @param {string} dataDir 
@@ -264,4 +264,4 @@ class ReadOnlyIO extends IO {
 	}
 }
 
-module.exports = ReadOnlyIO;
+module.exports = ReadOnly;
