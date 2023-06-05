@@ -1,14 +1,12 @@
 const Cache = require('@serum-enterprises/cache');
-const Result = require('./Result.class');
+const ReadOnly = require('./ReadOnly');
 
-const ReadOnly = require('./ReadOnlyIO.class');
-
-const path = require('path');
+const entry = require('path');
 const fs = require('fs');
 
 class ReadWrite extends ReadOnly {
 	/**
-	 * Create a new ReadWriteIO Instance
+	 * Create a new IO.ReadWrite Instance
 	 * @param {string} dataDir 
 	 * @param {Cache | number | null} cache 
 	 */
@@ -17,14 +15,14 @@ class ReadWrite extends ReadOnly {
 	}
 
 	/**
-	 * Write data to a File specified by filename.
-	 * If the File does not exist, it will be created.
-	 * If the File does exist, it will be overwritten.
+	 * Write data to a File specified by filename (Overwrites existing Files and creates new Files)
+	 * Rejects with a TypeError if filename is not a String
+	 * Rejects with a TypeError if data is not an instance of Buffer
+	 * Rejects with a RangeError if filename is not inside the Data Directory
+	 * Rejects on a File System Error (e.g. the File does not exist)
 	 * @param {string} filename 
 	 * @param {Buffer} data 
-	 * @returns {Promise<Result<void, Error>>}
-	 * @throws {TypeError} - If filename is not a String
-	 * @throws {TypeError} - If data is not an instance of Buffer
+	 * @returns {Promise<void>}
 	 * @public
 	 * @async
 	 */
@@ -35,24 +33,23 @@ class ReadWrite extends ReadOnly {
 		if (!(data instanceof Buffer))
 			throw new TypeError('Expected data to be an instance of Buffer');
 
-		const resolvedFilename = path.resolve(this.dataDir, filename);
+		const resolvedFilename = entry.resolve(this.dataDir, filename);
 
 		if (!resolvedFilename.startsWith(this.dataDir))
-			return Result.E(new Error('Expected filename to be inside the Data Directory'));
+			throw new RangeError('Expected filename to be inside the Data Directory');
 
-		return fs.promises.writeFile(resolvedFilename, data)
-			.then(() => {
-				this.cache.set(resolvedFilename, data);
-				return Result.OK();
-			})
-			.catch((err) => Result.E(err));
+		await fs.promises.writeFile(resolvedFilename, data);
+
+		this.cache.set(resolvedFilename, data);
 	}
 
 	/**
-	 * Recursively create a new Directory specified by dirname.
+	 * Recursively create a new Directory Structure specified by dirname
+	 * Rejects with a TypeError if dirname is not a String
+	 * Rejects with a RangeError if dirname is not inside the Data Directory
+	 * Rejects on a File System Error
 	 * @param {string} dirname 
-	 * @returns {Promise<Result<void, Error>>}
-	 * @throws {TypeError} - If dirname is not a String
+	 * @returns {Promise<void>}
 	 * @public
 	 * @async
 	 */
@@ -60,23 +57,24 @@ class ReadWrite extends ReadOnly {
 		if (typeof dirname !== 'string')
 			throw new TypeError('Expected dirname to be a String');
 
-		const resolvedDirectory = path.resolve(this.dataDir, dirname);
+		const resolvedDirectory = entry.resolve(this.dataDir, dirname);
 
 		if (!resolvedDirectory.startsWith(this.dataDir))
-			return Result.E(new Error('Expected dirname to be inside the Data Directory'));
+			throw new RangeError('Expected dirname to be inside the Data Directory');
 
-		return fs.promises.mkdir(resolvedDirectory, { recursive: true })
-			.then(() => Result.OK())
-			.catch((err) => Result.E(err));
+		await fs.promises.mkdir(resolvedDirectory, { recursive: true });
 	}
 
 	/**
-	 * Create a Symbolic Link specified by filename that points to target.
+	 * Create a Symbolic Link specified by filename that points to target
+	 * Rejects with a TypeError if target is not a String
+	 * Rejects with a TypeError if filename is not a String
+	 * Rejects with a RangeError if target is not inside the Data Directory
+	 * Rejects with a RangeError if filename is not inside the Data Directory
+	 * Rejects on a File System Error
 	 * @param {string} target 
 	 * @param {string} filename
-	 * @returns {Promise<Result<void, Error>>}
-	 * @throws {TypeError} - If target is not a String
-	 * @throws {TypeError} - If filename is not a String
+	 * @returns {Promise<void>}
 	 * @public
 	 * @async
 	 */
@@ -87,27 +85,28 @@ class ReadWrite extends ReadOnly {
 		if (typeof filename !== 'string')
 			throw new TypeError('Expected filename to be a String');
 
-		const resolvedTarget = path.resolve(this.dataDir, target);
-		const resolvedFilename = path.resolve(this.dataDir, filename);
+		const resolvedTarget = entry.resolve(this.dataDir, target);
+		const resolvedFilename = entry.resolve(this.dataDir, filename);
 
 		if (!resolvedTarget.startsWith(this.dataDir))
-			return Result.E(new Error('Expected target to be inside the Data Directory'));
+			throw new RangeError('Expected target to be inside the Data Directory');
 
 		if (!resolvedFilename.startsWith(this.dataDir))
-			return Result.E(new Error('Expected filename to be inside the Data Directory'));
+			throw new RangeError('Expected filename to be inside the Data Directory');
 
-		return fs.promises.symlink(resolvedTarget, resolvedFilename)
-			.then(() => Result.OK())
-			.catch((err) => Result.E(err));
+		await fs.promises.symlink(resolvedTarget, resolvedFilename);
 	}
 
 	/**
 	 * Create a Hard Link specified by filename that points to target.
+	 * Rejects with a TypeError if target is not a String
+	 * Rejects with a TypeError if filename is not a String
+	 * Rejects with a RangeError if target is not inside the Data Directory
+	 * Rejects with a RangeError if filename is not inside the Data Directory
+	 * Rejects on a File System Error
 	 * @param {string} target 
 	 * @param {string} filename 
-	 * @returns {Promise<Result<void, Error>>}
-	 * @throws {TypeError} - If target is not a String
-	 * @throws {TypeError} - If filename is not a String
+	 * @returns {Promise<void>}
 	 * @public
 	 * @async
 	 */
@@ -118,27 +117,28 @@ class ReadWrite extends ReadOnly {
 		if (typeof filename !== 'string')
 			throw new TypeError('Expected filename to be a String');
 
-		const resolvedTarget = path.resolve(this.dataDir, target);
-		const resolvedFilename = path.resolve(this.dataDir, filename);
+		const resolvedTarget = entry.resolve(this.dataDir, target);
+		const resolvedFilename = entry.resolve(this.dataDir, filename);
 
 		if (!resolvedTarget.startsWith(this.dataDir))
-			return Result.E(new Error('Expected target to be inside the Data Directory'));
+			throw new RangeError('Expected target to be inside the Data Directory');
 
 		if (!resolvedFilename.startsWith(this.dataDir))
-			return Result.E(new Error('Expected filename to be inside the Data Directory'));
+			throw new RangeError('Expected filename to be inside the Data Directory');
 
-		return fs.promises.link(resolvedTarget, resolvedFilename)
-			.then(() => Result.OK())
-			.catch((err) => Result.E(err));
+		await fs.promises.link(resolvedTarget, resolvedFilename);
 	}
 
 	/**
 	 * Rename an Entry specified by oldPath to newPath.
+	 * Rejects with a TypeError if oldPath is not a String
+	 * Rejects with a TypeError if newPath is not a String
+	 * Rejects with a RangeError if oldPath is not inside the Data Directory
+	 * Rejects with a RangeError if newPath is not inside the Data Directory
+	 * Rejects on a File System Error
 	 * @param {string} oldPath 
 	 * @param {string} newPath 
-	 * @returns {Promise<Result<void, Error>>}
-	 * @throws {TypeError} - If oldPath is not a String
-	 * @throws {TypeError} - If newPath is not a String
+	 * @returns {Promise<void>}
 	 * @public
 	 * @async
 	 */
@@ -149,58 +149,54 @@ class ReadWrite extends ReadOnly {
 		if (typeof newPath !== 'string')
 			throw new TypeError('Expected newPath to be a String');
 
-		const resolvedOldPath = path.resolve(this.dataDir, oldPath);
-		const resolvedNewPath = path.resolve(this.dataDir, newPath);
+		const resolvedOldPath = entry.resolve(this.dataDir, oldPath);
+		const resolvedNewPath = entry.resolve(this.dataDir, newPath);
 
 		if (!resolvedOldPath.startsWith(this.dataDir))
-			return Result.E(new Error('Expected oldPath to be inside the Data Directory'));
+			throw new RangeError('Expected oldPath to be inside the Data Directory');
 
 		if (!resolvedNewPath.startsWith(this.dataDir))
-			return Result.E(new Error('Expected newPath to be inside the Data Directory'));
+			throw new RangeError('Expected newPath to be inside the Data Directory');
 
-		return fs.promises.rename(resolvedOldPath, resolvedNewPath)
-			.then(() => {
-				if (this.cache.has(resolvedOldPath))
-					this.cache.rename(resolvedOldPath, resolvedNewPath);
+		await fs.promises.rename(resolvedOldPath, resolvedNewPath);
 
-				return Result.OK();
-			})
-			.catch((err) => Result.E(err));
+		if (this.cache.has(resolvedOldPath))
+			this.cache.rename(resolvedOldPath, resolvedNewPath);
 	}
 
 	/**
-	 * Delete an Entry specified by path.
-	 * @param {string} path 
-	 * @returns {Promise<Result<void, Error>>}
-	 * @throws {TypeError} - If path is not a String
+	 * Delete an Entry specified by entry.
+	 * Rejects with a TypeError if entry is not a String
+	 * Rejects with a RangeError if entry is not inside the Data Directory
+	 * Rejects on a File System Error
+	 * @param {string} entry 
+	 * @returns {Promise<void>}
 	 * @public
 	 * @async
 	 */
-	async delete(path) {
-		if (typeof path !== 'string')
-			throw new TypeError('Expected path to be a String');
+	async delete(entry) {
+		if (typeof entry !== 'string')
+			throw new TypeError('Expected entry to be a String');
 
-		const resolvedPath = path.resolve(this.dataDir, path);
+		const resolvedPath = entry.resolve(this.dataDir, entry);
 
 		if (!resolvedPath.startsWith(this.dataDir))
-			return Result.E(new Error('Expected path to be inside the Data Directory'));
+			throw new RangeError('Expected path to be inside the Data Directory');
 
-		return fs.promises.unlink(resolvedPath)
-			.then(() => {
-				this.cache.delete(resolvedPath);
+		await fs.promises.unlink(resolvedPath);
 
-				return Result.OK();
-			})
-			.catch((err) => Result.E(err));
+		this.cache.delete(resolvedPath);
 	}
 
 	/**
 	 * Syncronously write data to a File specified by filename.
 	 * @param {string} filename 
 	 * @param {Buffer} data 
-	 * @returns {Result<void, Error>}
+	 * @returns {void}
 	 * @throws {TypeError} - If filename is not a String
 	 * @throws {TypeError} - If data is not an instance of Buffer
+	 * @throws {RangeError} - If filename is not inside the Data Directory
+	 * @throws {Error} - If a File System Error occurs
 	 * @public
 	 */
 	writeFileSync(filename, data) {
@@ -210,56 +206,47 @@ class ReadWrite extends ReadOnly {
 		if (!(data instanceof Buffer))
 			throw new TypeError('Expected data to be an instance of Buffer');
 
-		const resolvedFilename = path.resolve(this.dataDir, filename);
+		const resolvedFilename = entry.resolve(this.dataDir, filename);
 
 		if (!resolvedFilename.startsWith(this.dataDir))
-			return Result.E(new Error('Expected filename to be inside the Data Directory'));
+			throw new RangeError('Expected filename to be inside the Data Directory');
 
-		try {
-			fs.writeFileSync(resolvedFilename, data);
+		fs.writeFileSync(resolvedFilename, data);
 
-			this.cache.set(resolvedFilename, data);
-
-			return Result.OK();
-		}
-		catch (err) {
-			return Result.E(err);
-		}
+		this.cache.set(resolvedFilename, data);
 	}
 
 	/**
-	 * Syncronously and recursively create a Directory specified by dirname.
+	 * Syncronously and recursively create a Directory Structure specified by dirname.
 	 * @param {string} dirname 
-	 * @returns {Result<void, Error>}
+	 * @returns {void}
 	 * @throws {TypeError} - If dirname is not a String
+	 * @throws {RangeError} - If dirname is not inside the Data Directory
+	 * @throws {Error} - If a File System Error occurs
 	 * @public
 	 */
 	createDirSync(dirname) {
 		if (typeof dirname !== 'string')
 			throw new TypeError('Expected dirname to be a String');
 
-		const resolvedDirectory = path.resolve(this.dataDir, dirname);
+		const resolvedDirectory = entry.resolve(this.dataDir, dirname);
 
 		if (!resolvedDirectory.startsWith(this.dataDir))
-			return Result.E(new Error('Expected dirname to be inside the Data Directory'));
+			throw new RangeError('Expected dirname to be inside the Data Directory');
 
-		try {
-			fs.mkdirSync(resolvedDirectory, { recursive: true });
-
-			return Result.OK();
-		}
-		catch (err) {
-			return Result.E(err);
-		}
+		fs.mkdirSync(resolvedDirectory, { recursive: true });
 	}
 
 	/**
 	 * Syncronously create a Symbolic Link specified by filename that points to target.
 	 * @param {string} target 
 	 * @param {string} filename 
-	 * @returns {Result<void, Error>}
+	 * @returns {void}
 	 * @throws {TypeError} - If target is not a String
 	 * @throws {TypeError} - If filename is not a String
+	 * @throws {RangeError} - If target is not inside the Data Directory
+	 * @throws {RangeError} - If filename is not inside the Data Directory
+	 * @throws {Error} - If a File System Error occurs
 	 * @public
 	 */
 	createSymLinkSync(target, filename) {
@@ -269,32 +256,29 @@ class ReadWrite extends ReadOnly {
 		if (typeof filename !== 'string')
 			throw new TypeError('Expected filename to be a String');
 
-		const resolvedTarget = path.resolve(this.dataDir, target);
-		const resolvedFilename = path.resolve(this.dataDir, filename);
+		const resolvedTarget = entry.resolve(this.dataDir, target);
+		const resolvedFilename = entry.resolve(this.dataDir, filename);
 
 		if (!resolvedTarget.startsWith(this.dataDir))
-			return Result.E(new Error('Expected target to be inside the Data Directory'));
+			throw new RangeError('Expected target to be inside the Data Directory');
 
 		if (!resolvedFilename.startsWith(this.dataDir))
-			return Result.E(new Error('Expected filename to be inside the Data Directory'));
+			throw new RangeError('Expected filename to be inside the Data Directory');
 
-		try {
-			fs.symlinkSync(resolvedTarget, resolvedFilename);
+		fs.symlinkSync(resolvedTarget, resolvedFilename);
 
-			return Result.OK();
-		}
-		catch (err) {
-			return Result.E(err);
-		}
 	}
 
 	/**
 	 * Syncronously create a Hard Link specified by filename that points to target.
 	 * @param {string} target 
 	 * @param {string} filename 
-	 * @returns {Result<void, Error>}
+	 * @returns {void}
 	 * @throws {TypeError} - If target is not a String
 	 * @throws {TypeError} - If filename is not a String
+	 * @throws {RangeError} - If target is not inside the Data Directory
+	 * @throws {RangeError} - If filename is not inside the Data Directory
+	 * @throws {Error} - If a File System Error occurs
 	 * @public
 	 */
 	createHardLinkSync(target, filename) {
@@ -304,32 +288,28 @@ class ReadWrite extends ReadOnly {
 		if (typeof filename !== 'string')
 			throw new TypeError('Expected filename to be a String');
 
-		const resolvedTarget = path.resolve(this.dataDir, target);
-		const resolvedFilename = path.resolve(this.dataDir, filename);
+		const resolvedTarget = entry.resolve(this.dataDir, target);
+		const resolvedFilename = entry.resolve(this.dataDir, filename);
 
 		if (!resolvedTarget.startsWith(this.dataDir))
-			return Result.E(new Error('Expected target to be inside the Data Directory'));
+			throw new RangeError('Expected target to be inside the Data Directory');
 
 		if (!resolvedFilename.startsWith(this.dataDir))
-			return Result.E(new Error('Expected filename to be inside the Data Directory'));
+			throw new RangeError('Expected filename to be inside the Data Directory');
 
-		try {
-			fs.linkSync(resolvedTarget, resolvedFilename);
-
-			return Result.OK();
-		}
-		catch (err) {
-			return Result.E(err);
-		}
+		fs.linkSync(resolvedTarget, resolvedFilename);
 	}
 
 	/**
 	 * Synchronously rename an Entry specified by oldPath to newPath.
 	 * @param {string} oldPath 
 	 * @param {string} newPath 
-	 * @returns {Result<void, Error>}
+	 * @returns {void}
 	 * @throws {TypeError} - If oldPath is not a String
 	 * @throws {TypeError} - If newPath is not a String
+	 * @throws {RangeError} - If oldPath is not inside the Data Directory
+	 * @throws {RangeError} - If newPath is not inside the Data Directory
+	 * @throws {Error} - If a File System Error occurs
 	 * @public
 	 */
 	renameSync(oldPath, newPath) {
@@ -339,53 +319,41 @@ class ReadWrite extends ReadOnly {
 		if (typeof newPath !== 'string')
 			throw new TypeError('Expected newPath to be a String');
 
-		const resolvedOldPath = path.resolve(this.dataDir, oldPath);
-		const resolvedNewPath = path.resolve(this.dataDir, newPath);
+		const resolvedOldPath = entry.resolve(this.dataDir, oldPath);
+		const resolvedNewPath = entry.resolve(this.dataDir, newPath);
 
 		if (!resolvedOldPath.startsWith(this.dataDir))
-			return Result.E(new Error('Expected oldPath to be inside the Data Directory'));
+			throw new RangeError('Expected oldPath to be inside the Data Directory');
 
 		if (!resolvedNewPath.startsWith(this.dataDir))
-			return Result.E(new Error('Expected newPath to be inside the Data Directory'));
+			throw new RangeError('Expected newPath to be inside the Data Directory');
 
-		try {
-			fs.renameSync(resolvedOldPath, resolvedNewPath);
+		fs.renameSync(resolvedOldPath, resolvedNewPath);
 
-			this.cache.rename(resolvedOldPath, resolvedNewPath);
-
-			return Result.OK();
-		}
-		catch (err) {
-			return Result.E(err);
-		}
+		this.cache.rename(resolvedOldPath, resolvedNewPath);
 	}
 
 	/**
 	 * Synchronously delete an Entry specified by path.
 	 * @param {string} path 
-	 * @returns {Result<void, Error>}
+	 * @returns {void}
 	 * @throws {TypeError} - If path is not a String
+	 * @throws {RangeError} - If path is not inside the Data Directory
+	 * @throws {Error} - If a File System Error occurs
 	 * @public
 	 */
 	deleteSync(path) {
-		if(typeof path !== 'string')
+		if (typeof path !== 'string')
 			throw new TypeError('Expected path to be a String');
 
 		const resolvedPath = path.resolve(this.dataDir, path);
-		
+
 		if (!resolvedPath.startsWith(this.dataDir))
-			return Result.E(new Error('Expected path to be inside the Data Directory'));
+			throw new RangeError('Expected path to be inside the Data Directory');
 
-		try {
-			fs.unlinkSync(resolvedPath);
+		fs.unlinkSync(resolvedPath);
 
-			this.cache.delete(resolvedPath);
-
-			return Result.OK();
-		}
-		catch (err) {
-			return Result.E(err);
-		}
+		this.cache.delete(resolvedPath);
 	}
 }
 

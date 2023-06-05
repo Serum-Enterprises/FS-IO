@@ -1,5 +1,4 @@
 const Cache = require('@serum-enterprises/cache');
-const Result = require('../lib/Result.class');
 
 const IO = require('./IO');
 
@@ -8,7 +7,7 @@ const fs = require('fs');
 
 class ReadOnly extends IO {
 	/**
-	 * Create a new ReadOnlyIO Instance
+	 * Create a new IO.ReadOnly Instance
 	 * @param {string} dataDir 
 	 * @param {Cache | number | null} cache 
 	 */
@@ -18,9 +17,12 @@ class ReadOnly extends IO {
 
 	/**
 	 * Read the File specified by filename
+	 * Resolves to a Buffer with the Content of the File
+	 * Rejects with a TypeError if filename is not a String
+	 * Rejects with a RangeError if filename does not resolve to a Path in the Data Directory
+	 * Rejects on a File System Error (e.g. the File does not exist)
 	 * @param {string} filename 
-	 * @returns {Promise<Result<Buffer, Error>>}
-	 * @throws {TypeError} - If filename is not a String
+	 * @returns {Promise<Buffer>}
 	 * @public
 	 * @async
 	 */
@@ -31,49 +33,26 @@ class ReadOnly extends IO {
 		const resolvedFilename = path.resolve(this.dataDir, filename);
 
 		if (!resolvedFilename.startsWith(this.dataDir))
-			return Result.E(new Error('Expected filename to be inside the Data Directory'));
+			throw new RangeError('Expected filename to be inside the Data Directory');
 
 		if (this.cache.has(resolvedFilename))
-			return Result.OK(this.cache.get(resolvedFilename));
+			throw this.cache.get(resolvedFilename);
 
-		return fs.promises.readFile(resolvedFilename)
-			.then(data => {
-				this.cache.set(resolvedFilename, data);
-				return Result.OK(data);
-			})
-			.catch(Result.E);
-	}
+		const data = await fs.promises.readFile(resolvedFilename);
 
-	/**
-	 * Check if the Entry specified by filename is a File
-	 * @param {string} filename 
-	 * @returns {Promise<Result<boolean, Error>>}
-	 * @throws {TypeError} - If filename is not a String
-	 * @public
-	 * @async
-	 */
-	async isFile(filename) {
-		if (typeof filename !== 'string')
-			throw new TypeError('Expected filename to be a String');
+		this.cache.set(resolvedFilename, data);
 
-		const resolvedFilename = path.resolve(this.dataDir, filename);
-
-		if (!resolvedFilename.startsWith(this.dataDir))
-			return Result.E(new Error('Expected filename to be inside the Data Directory'));
-
-		if (this.cache.has(resolvedFilename))
-			return Result.OK(true);
-
-		return fs.promises.lstat(resolvedFilename)
-			.then(stat => Result.OK(stat.isFile()))
-			.catch(Result.E);
+		return data;
 	}
 
 	/**
 	 * Read the Directory specified by dirname
+	 * Resolves to an Array of fs.Dirent Objects
+	 * Rejects with a TypeError if dirname is not a String
+	 * Rejects with a RangeError if dirname does not resolve to a Path in the Data Directory
+	 * Rejects on a File System Error (e.g. the Directory does not exist)
 	 * @param {string} dirname 
-	 * @returns {Promise<Result<fs.Dirent[], Error>>}
-	 * @throws {TypeError} - If dirname is not a String
+	 * @returns {Promise<fs.Dirent[]>}
 	 * @public
 	 * @async
 	 */
@@ -84,62 +63,41 @@ class ReadOnly extends IO {
 		const resolvedDirname = path.resolve(this.dataDir, dirname);
 
 		if (!resolvedDirname.startsWith(this.dataDir))
-			return Result.E(new Error('Expected dirname to be inside the Data Directory'));
+			throw new RangeError('Expected dirname to be inside the Data Directory');
 
-		return fs.promises.readdir(resolvedDirname, { withFileTypes: true })
-			.then(Result.OK)
-			.catch(Result.E);
+		return await fs.promises.readdir(resolvedDirname, { withFileTypes: true });
 	}
 
 	/**
-	 * Check if the Entry specified by dirname is a Directory
-	 * @param {string} dirname 
-	 * @returns {Promise<Result<boolean, Error>>}
-	 * @throws {TypeError} - If dirname is not a String
+	 * Get Information about the Entry specified by entry
+	 * Resolves to a fs.Stats Object
+	 * Rejects with a TypeError if entry is not a String
+	 * Rejects with a RangeError if entry does not resolve to a Path in the Data Directory
+	 * Rejects on a File System Error (e.g. the Entry does not exist)
+	 * @param {string} entry 
+	 * @returns {Promise<fs.Stats>}
 	 * @public
 	 * @async
 	 */
-	async isDir(dirname) {
-		if (typeof dirname !== 'string')
-			throw new TypeError('Expected dirname to be a String');
+	async info(entry) {
+		if (typeof entry !== 'string')
+			throw new TypeError('Expected entry to be a String');
 
-		const resolvedDirname = path.resolve(this.dataDir, dirname);
+		const resolvedEntry = path.resolve(this.dataDir, entry);
 
-		if (!resolvedDirname.startsWith(this.dataDir))
-			return Result.E(new Error('Expected dirname to be inside the Data Directory'));
+		if (!resolvedEntry.startsWith(this.dataDir))
+			throw new RangeError('Expected entry to be inside the Data Directory');
 
-		return fs.promises.lstat(resolvedDirname)
-			.then(stat => Result.OK(stat.isDirectory()))
-			.catch(Result.E);
-	}
-
-	/**
-	 * Check if the Entry specified by linkname is a Symbolic Link
-	 * @param {string} linkname 
-	 * @returns {Promise<Result<boolean, Error>>}
-	 * @throws {TypeError} - If linkname is not a String
-	 * @public
-	 * @async
-	 */
-	async isSymLink(linkname) {
-		if (typeof linkname !== 'string')
-			throw new TypeError('Expected linkname to be a String');
-
-		const resolvedLinkname = path.resolve(this.dataDir, linkname);
-
-		if (!resolvedLinkname.startsWith(this.dataDir))
-			return Result.E(new Error('Expected linkname to be inside the Data Directory'));
-
-		return fs.promises.lstat(resolvedLinkname)
-			.then(stat => Result.OK(stat.isSymbolicLink()))
-			.catch(Result.E);
+		return await fs.promises.lstat(resolvedEntry);
 	}
 
 	/**
 	 * Read the File specified by filename synchronously
 	 * @param {string} filename 
-	 * @returns {Result<Buffer, Error>}
+	 * @returns {Buffer}
 	 * @throws {TypeError} - If filename is not a String
+	 * @throws {RangeError} - If filename does not resolve to a Path in the Data Directory
+	 * @throws {Error} - On a File System Error (e.g. the File does not exist)
 	 * @public
 	 */
 	readFileSync(filename) {
@@ -149,53 +107,25 @@ class ReadOnly extends IO {
 		const resolvedFilename = path.resolve(this.dataDir, filename);
 
 		if (!resolvedFilename.startsWith(this.dataDir))
-			return Result.E(new Error('Expected filename to be inside the Data Directory'));
+			throw new RangeError('Expected filename to be inside the Data Directory');
 
 		if (this.cache.has(resolvedFilename))
-			return Result.OK(this.cache.get(resolvedFilename));
+			throw this.cache.get(resolvedFilename);
 
-		try {
-			const data = fs.readFileSync(resolvedFilename);
-			this.cache.set(resolvedFilename, data);
-			return Result.OK(data);
-		}
-		catch (err) {
-			return Result.E(err);
-		}
-	}
+		const data = fs.readFileSync(resolvedFilename);
 
-	/**
-	 * Check if the Entry specified by filename is a File synchronously
-	 * @param {string} filename 
-	 * @returns {Result<boolean, Error>}
-	 * @throws {TypeError} - If filename is not a String
-	 * @public
-	 */
-	isFileSync(filename) {
-		if (typeof filename !== 'string')
-			throw new TypeError('Expected filename to be a String');
+		this.cache.set(resolvedFilename, data);
 
-		const resolvedFilename = path.resolve(this.dataDir, filename);
-
-		if (!resolvedFilename.startsWith(this.dataDir))
-			return Result.E(new Error('Expected filename to be inside the Data Directory'));
-
-		if (this.cache.has(resolvedFilename))
-			return Result.OK(true);
-
-		try {
-			return Result.OK(!!fs.lstatSync(resolvedFilename, { throwIfNoEntry: false })?.isFile());
-		}
-		catch (err) {
-			return Result.E(err);
-		}
+		return data;
 	}
 
 	/**
 	 * Read the Directory specified by dirname synchronously
 	 * @param {string} dirname 
-	 * @returns {Result<fs.Dirent[], Error>}
+	 * @returns {fs.Dirent[]}
 	 * @throws {TypeError} - If dirname is not a String
+	 * @throws {RangeError} - If dirname does not resolve to a Path in the Data Directory
+	 * @throws {Error} - On a File System Error (e.g. the Directory does not exist)
 	 * @public
 	 */
 	readDirSync(dirname) {
@@ -205,62 +135,30 @@ class ReadOnly extends IO {
 		const resolvedDirname = path.resolve(this.dataDir, dirname);
 
 		if (!resolvedDirname.startsWith(this.dataDir))
-			return Result.E(new Error('Expected dirname to be inside the Data Directory'));
+			throw new RangeError('Expected dirname to be inside the Data Directory');
 
-		try {
-			return Result.OK(fs.readdirSync(resolvedDirname, { withFileTypes: true }));
-		}
-		catch (err) {
-			return Result.E(err);
-		}
+		return fs.readdirSync(resolvedDirname, { withFileTypes: true });
 	}
 
 	/**
-	 * Check if the Entry specified by dirname is a Directory synchronously
-	 * @param {string} dirname 
-	 * @returns {Result<boolean, Error>}
-	 * @throws {TypeError} - If dirname is not a String
+	 * Synchronously get Information about the Entry specified by entry
+	 * @param {string} entry 
+	 * @returns {fs.Stats}
+	 * @throws {TypeError} - If entry is not a String
+	 * @throws {RangeError} - If entry does not resolve to a Path in the Data Directory
+	 * @throws {Error} - On a File System Error (e.g. the Entry does not exist)
 	 * @public
 	 */
-	isDirSync(dirname) {
-		if (typeof dirname !== 'string')
-			throw new TypeError('Expected dirname to be a String');
+	infoSync(entry) {
+		if (typeof entry !== 'string')
+			throw new TypeError('Expected entry to be a String');
 
-		const resolvedDirname = path.resolve(this.dataDir, dirname);
+		const resolvedEntry = path.resolve(this.dataDir, entry);
 
-		if (!resolvedDirname.startsWith(this.dataDir))
-			return Result.E(new Error('Expected dirname to be inside the Data Directory'));
+		if (!resolvedEntry.startsWith(this.dataDir))
+			throw new RangeError('Expected entry to be inside the Data Directory');
 
-		try {
-			return Result.OK(!!fs.lstatSync(resolvedDirname, { throwIfNoEntry: false })?.isDirectory());
-		}
-		catch (err) {
-			return Result.E(err);
-		}
-	}
-
-	/**
-	 * Check if the Entry specified by linkname is a Symbolic Link synchronously
-	 * @param {string} linkname 
-	 * @returns {Result<boolean, Error>}
-	 * @throws {TypeError} - If linkname is not a String
-	 * @public
-	 */
-	isSymLinkSync(linkname) {
-		if (typeof linkname !== 'string')
-			throw new TypeError('Expected linkname to be a String');
-
-		const resolvedLinkname = path.resolve(this.dataDir, linkname);
-
-		if (!resolvedLinkname.startsWith(this.dataDir))
-			return Result.E(new Error('Expected linkname to be inside the Data Directory'));
-
-		try {
-			return Result.OK(!!fs.lstatSync(resolvedLinkname, { throwIfNoEntry: false })?.isSymbolicLink());
-		}
-		catch (err) {
-			return Result.E(err);
-		}
+		return fs.lstatSync(resolvedEntry);
 	}
 }
 
