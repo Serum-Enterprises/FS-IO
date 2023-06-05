@@ -36,7 +36,7 @@ class ReadOnly extends IO {
 			throw new RangeError('Expected filename to be inside the Data Directory');
 
 		if (this.cache.has(resolvedFilename))
-			throw this.cache.get(resolvedFilename);
+			return this.cache.get(resolvedFilename);
 
 		const data = await fs.promises.readFile(resolvedFilename);
 
@@ -110,7 +110,7 @@ class ReadOnly extends IO {
 			throw new RangeError('Expected filename to be inside the Data Directory');
 
 		if (this.cache.has(resolvedFilename))
-			throw this.cache.get(resolvedFilename);
+			return this.cache.get(resolvedFilename);
 
 		const data = fs.readFileSync(resolvedFilename);
 
