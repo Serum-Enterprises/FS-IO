@@ -1,5 +1,6 @@
 const Cache = require('@serum-enterprises/cache');
 
+const fs = require('fs');
 const path = require('path');
 
 class IO {
@@ -15,6 +16,7 @@ class IO {
 
 	/**
 	 * Create a new IO Instance
+	 * If the Data Directory does not exist, it will be created
 	 * @param {string} dataDir 
 	 * @param {Cache | number | null} cache
 	 * @throws {TypeError} - If dataDir is not a String
@@ -33,6 +35,9 @@ class IO {
 			this.#cache = cache;
 		else
 			throw new TypeError('Expected cache to be an instance of Cache, a positive Integer indicating the maximum size of the Cache (in Bytes), or null');
+
+		const resolvedDataDir = path.resolve(dataDir);
+		fs.mkdirSync(resolvedDataDir, { recursive: true });
 
 		this.#dataDir = path.resolve(dataDir);
 	}
