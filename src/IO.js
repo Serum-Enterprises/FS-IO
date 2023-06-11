@@ -1,7 +1,7 @@
-const Cache = require('@serum-enterprises/cache');
-
 const fs = require('fs');
 const path = require('path');
+
+const Cache = require('@serum-enterprises/cache');
 
 class IO {
 	/**
@@ -19,8 +19,9 @@ class IO {
 	 * If the Data Directory does not exist, it will be created
 	 * @param {string} dataDir 
 	 * @param {Cache | number | null} cache
-	 * @throws {TypeError} - If dataDir is not a String
-	 * @throws {TypeError} - If cache is not an instance of Cache, a positive Integer indicating the maximum size of the Cache (in Bytes), or null
+	 * @throws {TypeError} if dataDir is not a String
+	 * @throws {TypeError} if cache is not an instance of Cache, a positive Integer indicating the maximum size of the Cache (in Bytes), or null
+	 * @throws {Error} on a File System Error
 	 * @public
 	 */
 	constructor(dataDir, cache = null) {
@@ -36,10 +37,9 @@ class IO {
 		else
 			throw new TypeError('Expected cache to be an instance of Cache, a positive Integer indicating the maximum size of the Cache (in Bytes), or null');
 
-		const resolvedDataDir = path.resolve(dataDir);
-		fs.mkdirSync(resolvedDataDir, { recursive: true });
-
 		this.#dataDir = path.resolve(dataDir);
+
+		fs.mkdirSync(this.#dataDir, { recursive: true });
 	}
 
 	/**
@@ -52,7 +52,7 @@ class IO {
 	}
 
 	/**
-	 * Get the Cache
+	 * Get the Cache Instance
 	 * @returns {Cache}
 	 * @public
 	 */
