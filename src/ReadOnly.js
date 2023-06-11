@@ -1,15 +1,19 @@
-const Cache = require('@serum-enterprises/cache');
-
-const IO = require('./IO');
-
 const path = require('path');
 const fs = require('fs');
 
+const Cache = require('@serum-enterprises/cache');
+const IO = require('./IO');
+
 class ReadOnly extends IO {
 	/**
-	 * Create a new IO.ReadOnly Instance
+	 * Create a new ReadOnly Instance
+	 * If the Data Directory does not exist, it will be created
 	 * @param {string} dataDir 
-	 * @param {Cache | number | null} cache 
+	 * @param {Cache | number | null} cache
+	 * @throws {TypeError} if dataDir is not a String
+	 * @throws {TypeError} if cache is not an instance of Cache, a positive Integer indicating the maximum size of the Cache (in Bytes), or null
+	 * @throws {Error} on a File System Error
+	 * @public
 	 */
 	constructor(dataDir, cache = null) {
 		super(dataDir, cache);
@@ -20,7 +24,7 @@ class ReadOnly extends IO {
 	 * Resolves to a Buffer with the Content of the File
 	 * Rejects with a TypeError if filename is not a String
 	 * Rejects with a RangeError if filename does not resolve to a Path in the Data Directory
-	 * Rejects on a File System Error (e.g. the File does not exist)
+	 * Rejects with an Error on a File System Error (e.g. the File does not exist)
 	 * @param {string} filename 
 	 * @returns {Promise<Buffer>}
 	 * @public
@@ -50,7 +54,7 @@ class ReadOnly extends IO {
 	 * Resolves to an Array of fs.Dirent Objects
 	 * Rejects with a TypeError if dirname is not a String
 	 * Rejects with a RangeError if dirname does not resolve to a Path in the Data Directory
-	 * Rejects on a File System Error (e.g. the Directory does not exist)
+	 * Rejects with an Error on a File System Error (e.g. the Directory does not exist)
 	 * @param {string} dirname 
 	 * @returns {Promise<fs.Dirent[]>}
 	 * @public
@@ -69,35 +73,64 @@ class ReadOnly extends IO {
 	}
 
 	/**
-	 * Get Information about the Entry specified by entry
-	 * Resolves to a fs.Stats Object
-	 * Rejects with a TypeError if entry is not a String
-	 * Rejects with a RangeError if entry does not resolve to a Path in the Data Directory
-	 * Rejects on a File System Error (e.g. the Entry does not exist)
-	 * @param {string} entry 
+	 * Get Information about the Entry specified by pathname
+	 * Resolves to an instance of fs.Stats
+	 * Rejects with a TypeError if pathname is not a String
+	 * Rejects with a RangeError if pathname does not resolve to a Path in the Data Directory
+	 * Rejects with an Error on a File System Error (e.g. the Entry does not exist)
+	 * @param {string} pathname 
 	 * @returns {Promise<fs.Stats>}
 	 * @public
 	 * @async
 	 */
-	async info(entry) {
-		if (typeof entry !== 'string')
-			throw new TypeError('Expected entry to be a String');
+	async info(pathname) {
+		if (typeof pathname !== 'string')
+			throw new TypeError('Expected pathname to be a String');
 
-		const resolvedEntry = path.resolve(this.dataDir, entry);
+		const resolvedPathname = path.resolve(this.dataDir, pathname);
 
-		if (!resolvedEntry.startsWith(this.dataDir))
-			throw new RangeError('Expected entry to be inside the Data Directory');
+		if (!resolvedPathname.startsWith(this.dataDir))
+			throw new RangeError('Expected pathname to be inside the Data Directory');
 
-		return await fs.promises.lstat(resolvedEntry);
+		return await fs.promises.lstat(resolvedPathname);
 	}
 
 	/**
-	 * Read the File specified by filename synchronously
+	 * Resolve the Path specified by pathname
+	 * Resolves to a String with the resolved Path
+	 * Rejects with a TypeError if pathname is not a String
+	 * Resolved with a RangeError if pathname is not inside the Data Directory
+	 * Rejects with a RangeError if the resolved pathname does not resolve to a Path in the Data Directory
+	 * Rejects with an Error on a File System Error (e.g. the Entry does not exist)
+	 * @param {string} pathname 
+	 * @returns {string}
+	 * @public
+	 * @async
+	 */
+	async resolvePath(pathname) {
+		if (typeof pathname !== 'string')
+			throw new TypeError('Expected pathname to be a String');
+
+		const resolvedEntry = path.resolve(this.dataDir, pathname);
+
+		if (!resolvedEntry.startsWith(this.dataDir))
+			throw new RangeError('Expected pathname to be inside the Data Directory');
+
+		const resolvedPath = await fs.promises.realpath(resolvedEntry);
+
+		if (!resolvedPath.startsWith(this.dataDir))
+			throw new RangeError('Expected the resolved pathname to be inside the Data Directory');
+
+		return resolvedPath;
+	}
+
+	/**
+	 * Synchronously read the File specified by filename
 	 * @param {string} filename 
 	 * @returns {Buffer}
-	 * @throws {TypeError} - If filename is not a String
-	 * @throws {RangeError} - If filename does not resolve to a Path in the Data Directory
-	 * @throws {Error} - On a File System Error (e.g. the File does not exist)
+	 * @throws {TypeError} if filename is not a String
+	 * @throws {RangeError} if filename does not resolve to a Path in the Data Directory
+	 * @throws {Error} on a File System Error (e.g. the File does not exist)
 	 * @public
 	 */
 	readFileSync(filename) {
@@ -120,12 +153,12 @@ class ReadOnly extends IO {
 	}
 
 	/**
-	 * Read the Directory specified by dirname synchronously
+	 * Synchronously read the Directory specified by dirname
 	 * @param {string} dirname 
 	 * @returns {fs.Dirent[]}
-	 * @throws {TypeError} - If dirname is not a String
-	 * @throws {RangeError} - If dirname does not resolve to a Path in the Data Directory
-	 * @throws {Error} - On a File System Error (e.g. the Directory does not exist)
+	 * @throws {TypeError} if dirname is not a String
+	 * @throws {RangeError} if dirname does not resolve to a Path in the Data Directory
+	 * @throws {Error} on a File System Error (e.g. the Directory does not exist)
 	 * @public
 	 */
 	readDirSync(dirname) {
@@ -141,15 +174,37 @@ class ReadOnly extends IO {
 	}
 
 	/**
-	 * Synchronously get Information about the Entry specified by entry
-	 * @param {string} entry 
+	 * Synchronously get Information about the Entry specified by pathname
+	 * @param {string} pathname 
 	 * @returns {fs.Stats}
-	 * @throws {TypeError} - If entry is not a String
-	 * @throws {RangeError} - If entry does not resolve to a Path in the Data Directory
-	 * @throws {Error} - On a File System Error (e.g. the Entry does not exist)
+	 * @throws {TypeError} if pathname is not a String
+	 * @throws {RangeError} if pathname does not resolve to a Path in the Data Directory
+	 * @throws {Error} on a File System Error (e.g. the Entry does not exist)
 	 * @public
 	 */
-	infoSync(entry) {
+	infoSync(pathname) {
+		if (typeof pathname !== 'string')
+			throw new TypeError('Expected pathname to be a String');
+
+		const resolvedPathname = path.resolve(this.dataDir, pathname);
+
+		if (!resolvedPathname.startsWith(this.dataDir))
+			throw new RangeError('Expected pathname to be inside the Data Directory');
+
+		return fs.lstatSync(resolvedPathname);
+	}
+
+	/**
+	 * Synchronously resolve the Path specified by pathname
+	 * @param {string} pathname 
+	 * @returns {string}
+	 * @throws {TypeError} if pathname is not a String
+	 * @throws {RangeError} if pathname does not resolve to a Path in the Data Directory
+	 * @throws {RangeError} if the resolved pathname does not resolve to a Path in the Data Directory
+	 * @throws {Error} on a File System Error (e.g. the Entry does not exist)
+	 * @public
+	 */
+	resolvePathSync(entry) {
 		if (typeof entry !== 'string')
 			throw new TypeError('Expected entry to be a String');
 
@@ -158,7 +213,12 @@ class ReadOnly extends IO {
 		if (!resolvedEntry.startsWith(this.dataDir))
 			throw new RangeError('Expected entry to be inside the Data Directory');
 
-		return fs.lstatSync(resolvedEntry);
+		const resolvedPath = fs.realpathSync(resolvedEntry);
+
+		if (!resolvedPath.startsWith(this.dataDir))
+			throw new RangeError('Expected resolved Path to be inside the Data Directory');
+
+		return resolvedPath;
 	}
 }
 
